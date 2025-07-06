@@ -181,7 +181,7 @@ for i in range(100):
     all_students.append(student.get_student())
 
 # Save to JSON
-with open("AI-Powered-Academic-Advisor/enhanced_student_profiles.json", "w") as f:
+with open("AI-Powered-Academic-Advisor/student_profiles.json", "w") as f:
     json.dump(all_students, f, indent=2)
 
 print(f"Generated {len(all_students)} students")
