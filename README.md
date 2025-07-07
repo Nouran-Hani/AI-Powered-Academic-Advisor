@@ -52,8 +52,8 @@ This project simulates an AI-powered academic advising system that guides studen
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/Nouran-Hani/AI-Powered-Academic-Advisor.git
+   cd AI-Powered-Academic-Advisor
    ```
 
 2. **Install dependencies**:
