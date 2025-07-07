@@ -69,13 +69,13 @@ This project simulates an AI-powered academic advising system that guides studen
 1. **Train the RL agent**:
 
    ```bash
-   python train_agent.py
+   python train.py
    ```
 
 2. **Evaluate the agent**:
 
    ```bash
-   python evaluate.py
+   python test.py
    ```
 
 ---
