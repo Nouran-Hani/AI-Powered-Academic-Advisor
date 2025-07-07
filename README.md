@@ -44,10 +44,10 @@ This project simulates an AI-powered academic advising system that guides studen
 ├── evaluate.py             # Evaluates the agent's performance
 ├── requirements.txt        # Project dependencies
 └── README.md               # Project documentation
-
+```
 ---
 
-## 💻 Setup & Installation
+## Setup & Installation
 
 1. **Clone the repository**:
 
@@ -64,7 +64,7 @@ This project simulates an AI-powered academic advising system that guides studen
 
 ---
 
-## 🚀 Run the Project
+## Run the Project
 
 1. **Train the RL agent**:
 
@@ -81,9 +81,10 @@ This project simulates an AI-powered academic advising system that guides studen
 ---
 
 ## requirements.txt
+   ```txt
 matplotlib
 networkx
 numpy
 gymnasium
 stable-baselines3
-
+```
