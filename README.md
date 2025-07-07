@@ -80,13 +80,10 @@ This project simulates an AI-powered academic advising system that guides studen
 
 ---
 
-## 📦 requirements.txt
-
-```txt
+## requirements.txt
 matplotlib
 networkx
 numpy
 gymnasium
 stable-baselines3
-```
 
