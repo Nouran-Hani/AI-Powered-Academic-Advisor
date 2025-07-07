@@ -12,7 +12,7 @@ grade_points = {"A": 4.0, "B": 3.0, "C": 2.0, "D": 1.0, "F": 0.0}
 
 # Load the curriculum graph
 try:
-    with open("AI-Powered-Academic-Advisor/part1/data/curriculum.pkl", "rb") as f:
+    with open("AI-Powered-Academic-Advisor/data/curriculum.pkl", "rb") as f:
         curi = pickle.load(f)
     print("Curriculum loaded successfully")
 except FileNotFoundError:
@@ -22,11 +22,10 @@ except FileNotFoundError:
 sorted_courses = list(nx.topological_sort(curi))
 
 class Student:
-    def __init__(self, student_id, interests, completed_courses=None, current_courses=None, current_term=1):
+    def __init__(self, student_id, interests, completed_courses=None, current_term=1):
         self.student_id = student_id
         self.interests = interests
-        self.completed_courses = completed_courses or {}  # Previous terms' courses with grades
-        self.current_courses = current_courses or []      # Current term's enrolled courses
+        self.completed_courses = completed_courses or {}  # All courses with grades (only completed)
         self.current_term = current_term
         self.failed_courses = [c for c, g in self.completed_courses.items() if g == "F"]
         self.retaken_courses = []
@@ -34,9 +33,20 @@ class Student:
         self.academic_standing = self.determine_academic_standing()
 
     def calculate_gpa(self):
-        """Calculate GPA based on completed courses (excluding failed courses)"""
-        passed_grades = [grade_points[g] for g in self.completed_courses.values() if g != "F"]
-        return round(sum(passed_grades) / len(passed_grades), 2) if passed_grades else 0.0
+        """Calculate GPA based on completed courses (excluding failed courses that weren't retaken)"""
+        # For GPA calculation, use the best grade for each course (in case of retakes)
+        course_grades = {}
+        for course, grade in self.completed_courses.items():
+            if course not in course_grades:
+                course_grades[course] = grade
+            else:
+                # If course was retaken, use the better grade
+                if grade_points[grade] > grade_points[course_grades[course]]:
+                    course_grades[course] = grade
+        
+        # Calculate GPA from passing grades only
+        passing_grades = [grade_points[g] for g in course_grades.values() if g != "F"]
+        return round(sum(passing_grades) / len(passing_grades), 2) if passing_grades else 0.0
 
     def determine_academic_standing(self):
         """Determine academic standing based on GPA"""
@@ -53,13 +63,13 @@ class Student:
 
     def can_take_course(self, course, graph):
         """Check if student can take a course (prerequisites met, not already passed)"""
-        # Already passed this course
-        if course in self.completed_courses and self.completed_courses[course] != "F":
-            return False
-        
-        # Already enrolled in current term
-        if course in self.current_courses:
-            return False
+        # Already passed this course (and didn't fail it most recently)
+        if course in self.completed_courses:
+            # If the course was failed, can retake it
+            if self.completed_courses[course] == "F":
+                return True
+            else:
+                return False  # Already passed, cannot retake
         
         # Check prerequisites
         prereqs = list(graph.predecessors(course))
@@ -80,24 +90,35 @@ class Student:
     def get_graduation_progress(self):
         """Calculate graduation progress as percentage"""
         total_courses = len(curi.nodes)
-        completed_courses = len([c for c, g in self.completed_courses.items() if g != "F"])
-        return round((completed_courses / total_courses) * 100, 1)
+        # Count unique courses that were passed (not failed)
+        passed_courses = set()
+        for course, grade in self.completed_courses.items():
+            if grade != "F":
+                passed_courses.add(course)
+        
+        return round((len(passed_courses) / total_courses) * 100, 1)
+
+    def get_passed_courses(self):
+        """Get list of courses that were passed (not failed)"""
+        return [course for course, grade in self.completed_courses.items() if grade != "F"]
 
     def get_student_dict(self):
         """Get student data as dictionary"""
+        passed_courses = self.get_passed_courses()
         return {
             "ID": self.student_id,
             "Interests": self.interests,
             "Completed_Courses": self.completed_courses,
-            "Current_Courses": self.current_courses,
+            "Passed_Courses": passed_courses,  # Only courses that were passed
             "Failed_Courses": self.failed_courses,
             "Retaken_Courses": self.retaken_courses,
             "Current_Term": self.current_term,
             "GPA": self.GPA,
             "Academic_Standing": self.academic_standing,
             "Graduation_Progress": self.get_graduation_progress(),
-            "Total_Courses_Completed": len([c for c, g in self.completed_courses.items() if g != "F"]),
-            "Total_Courses_Failed": len(self.failed_courses)
+            "Total_Courses_Passed": len(passed_courses),
+            "Total_Courses_Failed": len(self.failed_courses),
+            "Available_Next_Courses": self.get_available_courses(curi)
         }
 
 def simulate_realistic_student_progression(student, graph, terms_to_simulate):
@@ -111,6 +132,7 @@ def simulate_realistic_student_progression(student, graph, terms_to_simulate):
             break
         
         # Determine course load based on student's academic standing and term
+        # Following constraint: max 3-5 courses per term
         if student.academic_standing == "Critical":
             course_load = random.randint(3, 4)  # Lighter load for struggling students
         elif student.academic_standing == "Probation":
@@ -141,7 +163,7 @@ def simulate_realistic_student_progression(student, graph, terms_to_simulate):
             
             # Check if this is a retake
             if course in student.failed_courses:
-                success_rate += 0.1  # Better chance on retake
+                success_rate += 0.15  # Better chance on retake
                 student.retaken_courses.append(course)
             
             # Generate grade
@@ -157,6 +179,7 @@ def simulate_realistic_student_progression(student, graph, terms_to_simulate):
         student.failed_courses = [c for c, g in student.completed_courses.items() if g == "F"]
         student.GPA = student.calculate_gpa()
         student.academic_standing = student.determine_academic_standing()
+        student.current_term += 1
 
 def select_courses_intelligently(student, available_courses, course_load, graph):
     """Intelligently select courses based on interests, prerequisites, and requirements"""
@@ -178,7 +201,7 @@ def select_courses_intelligently(student, available_courses, course_load, graph)
     selected = []
     
     # First, add core courses (important for graduation)
-    core_needed = min(2, len(core_courses))
+    core_needed = min(2, len(core_courses), course_load)
     if core_courses:
         selected.extend(random.sample(core_courses, core_needed))
     
@@ -210,20 +233,19 @@ def generate_100_students():
         num_interests = random.randint(1, 3)
         student_interests = random.sample(interests_list, num_interests)
         
-        # Determine starting term (1-4 to represent students at different stages)
-        current_term = random.choices([1, 2, 3, 4], weights=[0.4, 0.3, 0.2, 0.1])[0]
+        # Create student starting from term 1
+        student = Student(student_id, student_interests, {}, 1)
         
-        # Create student
-        student = Student(student_id, student_interests, {}, [], current_term)
+        # Determine how many terms to simulate (1-8 terms for variety)
+        # This creates students at different stages of their academic journey
+        terms_completed = random.choices(
+            [1, 2, 3, 4, 5, 6, 7, 8], 
+            weights=[0.15, 0.15, 0.15, 0.15, 0.15, 0.10, 0.10, 0.05]
+        )[0]
         
-        # Simulate progression to current term
-        if current_term > 1:
-            terms_to_simulate = current_term - 1
-            simulate_realistic_student_progression(student, curi, terms_to_simulate)
-        
-        # Enroll in current term (for students who haven't graduated)
-        if student.get_graduation_progress() < 100:
-            enroll_current_term(student, curi)
+        # Simulate progression
+        if terms_completed > 1:
+            simulate_realistic_student_progression(student, curi, terms_completed - 1)
         
         all_students.append(student.get_student_dict())
         
@@ -232,25 +254,6 @@ def generate_100_students():
             print(f"Generated {i + 1}/100 students...")
     
     return all_students
-
-def enroll_current_term(student, graph):
-    """Enroll student in current term courses"""
-    available_courses = student.get_available_courses(graph)
-    
-    if not available_courses:
-        return
-    
-    # Determine course load
-    if student.academic_standing == "Critical":
-        course_load = random.randint(3, 4)
-    else:
-        course_load = random.randint(3, 5)
-    
-    course_load = min(course_load, len(available_courses))
-    
-    # Select courses intelligently
-    selected_courses = select_courses_intelligently(student, available_courses, course_load, graph)
-    student.current_courses = selected_courses
 
 def analyze_student_cohort(students):
     """Analyze the generated student cohort"""
@@ -272,12 +275,13 @@ def analyze_student_cohort(students):
         print(f"  Term {term}: {term_dist[term]} students ({term_dist[term]/len(students)*100:.1f}%)")
     
     # GPA distribution
-    gpas = [s['GPA'] for s in students]
-    print(f"\nGPA Statistics:")
-    print(f"  Average GPA: {np.mean(gpas):.2f}")
-    print(f"  Median GPA: {np.median(gpas):.2f}")
-    print(f"  Min GPA: {np.min(gpas):.2f}")
-    print(f"  Max GPA: {np.max(gpas):.2f}")
+    gpas = [s['GPA'] for s in students if s['GPA'] > 0]
+    if gpas:
+        print(f"\nGPA Statistics:")
+        print(f"  Average GPA: {np.mean(gpas):.2f}")
+        print(f"  Median GPA: {np.median(gpas):.2f}")
+        print(f"  Min GPA: {np.min(gpas):.2f}")
+        print(f"  Max GPA: {np.max(gpas):.2f}")
     
     # Academic standing
     standings = {}
@@ -303,14 +307,21 @@ def analyze_student_cohort(students):
     progress_values = [s['Graduation_Progress'] for s in students]
     print(f"\nGraduation Progress:")
     print(f"  Average Progress: {np.mean(progress_values):.1f}%")
+    print(f"  Students > 25% complete: {sum(1 for p in progress_values if p > 25)}")
     print(f"  Students > 50% complete: {sum(1 for p in progress_values if p > 50)}")
     print(f"  Students > 75% complete: {sum(1 for p in progress_values if p > 75)}")
     
-    # Course load analysis
-    current_loads = [len(s['Current_Courses']) for s in students]
-    print(f"\nCurrent Course Load:")
-    print(f"  Average: {np.mean(current_loads):.1f} courses")
-    print(f"  Range: {np.min(current_loads)}-{np.max(current_loads)} courses")
+    # Available courses analysis
+    available_counts = [len(s['Available_Next_Courses']) for s in students]
+    print(f"\nAvailable Next Courses:")
+    print(f"  Average: {np.mean(available_counts):.1f} courses available")
+    print(f"  Range: {np.min(available_counts)}-{np.max(available_counts)} courses")
+    
+    # Course completion analysis
+    completed_counts = [s['Total_Courses_Passed'] for s in students]
+    print(f"\nCourse Completion:")
+    print(f"  Average Courses Passed: {np.mean(completed_counts):.1f}")
+    print(f"  Range: {np.min(completed_counts)}-{np.max(completed_counts)} courses")
     
     # Sample student profiles
     print("\nSample Student Profiles:")
@@ -318,35 +329,62 @@ def analyze_student_cohort(students):
         student = students[i]
         print(f"\nStudent {student['ID']}:")
         print(f"  Interests: {student['Interests']}")
-        print(f"  Term: {student['Current_Term']}, GPA: {student['GPA']}")
-        print(f"  Completed: {student['Total_Courses_Completed']}, Failed: {student['Total_Courses_Failed']}")
-        print(f"  Current Load: {len(student['Current_Courses'])} courses")
+        print(f"  Current Term: {student['Current_Term']}, GPA: {student['GPA']}")
+        print(f"  Courses Passed: {student['Total_Courses_Passed']}, Failed: {student['Total_Courses_Failed']}")
+        print(f"  Available Next: {len(student['Available_Next_Courses'])} courses")
         print(f"  Progress: {student['Graduation_Progress']}%")
+        print(f"  Academic Standing: {student['Academic_Standing']}")
 
-def save_students_to_file(students, filename="AI-Powered-Academic-Advisor/part1/data/student_profiles.json"):
+def save_students_to_file(students, filename="AI-Powered-Academic-Advisor/data/student_profiles.json"):
     """Save students to JSON file"""
+    # Convert numpy arrays to lists for JSON serialization
+    serializable_students = []
+    for student in students:
+        serializable_student = student.copy()
+        # Convert any numpy arrays to lists
+        for key, value in serializable_student.items():
+            if isinstance(value, np.ndarray):
+                serializable_student[key] = value.tolist()
+        serializable_students.append(serializable_student)
+    
     with open(filename, 'w') as f:
-        json.dump(students, f, indent=2)
+        json.dump(serializable_students, f, indent=2)
     print(f"\nStudent profiles saved to {filename}")
 
-def create_test_subset(students, filename="AI-Powered-Academic-Advisor/part1/data/test_student_profiles.json"):
+def create_test_subset(students, filename="AI-Powered-Academic-Advisor/data/test_student_profiles.json"):
     """Create a subset of students for testing"""
-    # Take 10 students for testing
-    test_students = random.sample(students, min(10, len(students)))
+    # Take 10 students for testing - select diverse students
+    # Sort by graduation progress to get variety
+    sorted_students = sorted(students, key=lambda x: x['Graduation_Progress'])
+    
+    # Select every 10th student to get variety
+    test_students = []
+    for i in range(0, len(sorted_students), len(sorted_students)//10):
+        if len(test_students) < 10:
+            test_students.append(sorted_students[i].copy())
     
     # Reassign test IDs
     for i, student in enumerate(test_students):
         student['ID'] = f"TEST{i+1:03d}"
     
+    # Convert numpy arrays to lists for JSON serialization
+    serializable_test_students = []
+    for student in test_students:
+        serializable_student = student.copy()
+        for key, value in serializable_student.items():
+            if isinstance(value, np.ndarray):
+                serializable_student[key] = value.tolist()
+        serializable_test_students.append(serializable_student)
+    
     with open(filename, 'w') as f:
-        json.dump(test_students, f, indent=2)
+        json.dump(serializable_test_students, f, indent=2)
     
     print(f"Test subset ({len(test_students)} students) saved to {filename}")
 
 def main():
     """Main function to generate student cohort"""
     print("="*60)
-    print("STUDENT COHORT GENERATION")
+    print("STUDENT COHORT GENERATION - 48 Hours Challenge")
     print("="*60)
     
     # Set random seed for reproducibility
@@ -370,6 +408,13 @@ def main():
     print("- student_profiles.json (100 students)")
     print("- test_student_profiles.json (10 students)")
     print("\nStudent cohort ready for AI-powered academic advising!")
+    print("\nKey Features:")
+    print("✓ No current courses - all courses are completed")
+    print("✓ Course load constraint: 3-5 courses per term")
+    print("✓ Prerequisite enforcement")
+    print("✓ Retake policy for failed courses")
+    print("✓ Diverse student interests and academic standings")
+    print("✓ Available next courses calculated for each student")
 
 if __name__ == "__main__":
     main()

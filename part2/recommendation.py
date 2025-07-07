@@ -1,3 +1,4 @@
+import pickle
 import gymnasium as gym
 from gymnasium import spaces
 import random
@@ -10,436 +11,449 @@ INTEREST_CATEGORIES = ["AI", "Security", "Data Science", "Elective", "Core"]
 GRADE_POINTS = {"A": 4.0, "B": 3.0, "C": 2.0, "D": 1.0, "F": 0.0}
 
 class CurriculumEnv(gym.Env):
-    """
-    Reinforcement Learning Environment for Course Recommendation
-    
-    State: current completed courses, GPA, term number, interests, failed courses
-    Action: selecting a set of next-term eligible courses
-    Reward: GPA improvement, interest alignment, progress toward graduation
-    """
-    
+    """Enhanced Curriculum environment with better action handling"""
+
     def __init__(self, student_profile, curriculum_graph):
-        super(CurriculumEnv, self).__init__()
-        self.original_profile = deepcopy(student_profile)
+        super().__init__()
+        self.student = deepcopy(student_profile)
         self.graph = curriculum_graph
-        self.course_list = list(curriculum_graph.nodes())
-        self.max_terms = 12  # Allow up to 12 terms for graduation
-        self.min_courses_per_term = 3
-        self.max_courses_per_term = 5
-        self.total_courses_needed = len(curriculum_graph.nodes)
+        self.courses = list(curriculum_graph.nodes())
+        self.max_terms = 8
+        self.courses_per_term = (3, 5)  # min, max
         
-        # Define action and observation spaces
-        self.action_space = spaces.MultiBinary(len(self.course_list))
-        self.observation_space = spaces.Dict({
-            'completed_courses': spaces.MultiBinary(len(self.course_list)),
-            'failed_courses': spaces.MultiBinary(len(self.course_list)),
-            'current_gpa': spaces.Box(low=0.0, high=4.0, shape=(1,), dtype=np.float32),
-            'current_term': spaces.Box(low=1, high=self.max_terms, shape=(1,), dtype=np.int32),
-            'interests': spaces.MultiBinary(len(INTEREST_CATEGORIES)),
-            'graduation_progress': spaces.Box(low=0.0, high=1.0, shape=(1,), dtype=np.float32),
-            'eligible_courses': spaces.MultiBinary(len(self.course_list))
-        })
+        # Action space: binary vector for each course
+        self.action_space = spaces.MultiBinary(len(self.courses))
+        
+        # Fixed observation space - flattened for compatibility
+        obs_size = (
+            len(self.courses) * 4 +  # completed, passed, failed, available
+            len(INTEREST_CATEGORIES) +  # interests
+            3  # term, gpa, graduation_progress
+        )
+        
+        self.observation_space = gym.spaces.Box(
+            low=0.0, 
+            high=10.0, 
+            shape=(140,),  # Must match model's expected shape
+            dtype=np.float32
+        )
         
         self.reset()
 
     def reset(self, seed=None, options=None):
-        """Reset environment to initial state"""
-        if seed is not None:
-            self.np_random, _ = gym.utils.seeding.np_random(seed)
-            random.seed(seed)
+        # Initialize student profile with defaults if missing
+        self.student = deepcopy(self.student)
+        self.student.setdefault("Completed_Courses", {})
+        self.student.setdefault("Passed_Courses", [])
+        self.student.setdefault("Failed_Courses", [])
+        self.student.setdefault("Retaken_Courses", [])
+        self.student.setdefault("Current_Term", 1)
+        self.student.setdefault("GPA", 0.0)
+        self.student.setdefault("Academic_Standing", "Critical")
+        self.student.setdefault("Graduation_Progress", 0.0)
+        self.student.setdefault("Total_Courses_Passed", 0)
+        self.student.setdefault("Total_Courses_Failed", 0)
+        self.student.setdefault("Available_Next_Courses", [])
         
-        # Reset student profile
-        self.profile = deepcopy(self.original_profile)
-        self.profile["Completed_Courses"] = self.profile.get("Completed_Courses", {})
-        self.profile["Failed_Courses"] = self.profile.get("Failed_Courses", [])
-        self.profile["Current_Term"] = self.profile.get("Current_Term", 1)
-        self.profile["GPA"] = self.profile.get("GPA", 0.0)
-        self.profile["Interests"] = self.profile.get("Interests", [])
+        # Ensure derived fields are consistent
+        self._update_derived_fields()
         
-        self.done = False
-        self.terms_completed = 0
-        
-        return self._get_observation(), {}
+        return self._get_obs(), {}
 
-    def _get_observation(self):
-        """Get current state observation"""
-        # Completed courses binary vector
-        completed_vec = np.zeros(len(self.course_list), dtype=np.int8)
-        for i, course in enumerate(self.course_list):
-            if course in self.profile["Completed_Courses"] and self.profile["Completed_Courses"][course] != "F":
-                completed_vec[i] = 1
+    def _update_derived_fields(self):
+        """Ensure all derived fields are consistent with completed courses"""
+        # Update passed/failed lists
+        self.student["Passed_Courses"] = [
+            c for c, g in self.student["Completed_Courses"].items() if g != "F"
+        ]
+        self.student["Failed_Courses"] = [
+            c for c, g in self.student["Completed_Courses"].items() if g == "F"
+        ]
         
-        # Failed courses binary vector
-        failed_vec = np.zeros(len(self.course_list), dtype=np.int8)
-        for i, course in enumerate(self.course_list):
-            if course in self.profile["Failed_Courses"]:
-                failed_vec[i] = 1
+        # Update counts
+        self.student["Total_Courses_Passed"] = len(self.student["Passed_Courses"])
+        self.student["Total_Courses_Failed"] = len(self.student["Failed_Courses"])
         
-        # Interest vector
-        interest_vec = np.zeros(len(INTEREST_CATEGORIES), dtype=np.int8)
-        for i, category in enumerate(INTEREST_CATEGORIES):
-            if category in self.profile["Interests"]:
-                interest_vec[i] = 1
+        # Update available courses
+        self.student["Available_Next_Courses"] = self._get_eligible_courses()
         
-        # Eligible courses
-        eligible_courses = self._get_eligible_courses()
-        eligible_vec = np.zeros(len(self.course_list), dtype=np.int8)
-        for i, course in enumerate(self.course_list):
-            if course in eligible_courses:
-                eligible_vec[i] = 1
+        # Update GPA if not set
+        if "GPA" not in self.student or self.student["GPA"] == 0.0:
+            self.student["GPA"] = self._calculate_gpa()
         
-        # Graduation progress
-        completed_count = len([c for c, g in self.profile["Completed_Courses"].items() if g != "F"])
-        progress = completed_count / self.total_courses_needed
+        # Update graduation progress
+        total_courses = len(self.courses)
+        completed = self.student["Total_Courses_Passed"]
+        self.student["Graduation_Progress"] = round((completed / total_courses) * 100, 1)
         
-        return {
-            'completed_courses': completed_vec,
-            'failed_courses': failed_vec,
-            'current_gpa': np.array([self.profile["GPA"]], dtype=np.float32),
-            'current_term': np.array([self.profile["Current_Term"]], dtype=np.int32),
-            'interests': interest_vec,
-            'graduation_progress': np.array([progress], dtype=np.float32),
-            'eligible_courses': eligible_vec
-        }
+        # Update academic standing
+        self.student["Academic_Standing"] = self._determine_academic_standing()
+
+    def _calculate_gpa(self):
+        """Calculate GPA based on passed courses"""
+        passing_grades = [
+            GRADE_POINTS[g] 
+            for c, g in self.student["Completed_Courses"].items() 
+            if g != "F"
+        ]
+        return round(sum(passing_grades) / len(passing_grades), 2) if passing_grades else 0.0
+
+    def _determine_academic_standing(self):
+        """Determine academic standing based on GPA"""
+        gpa = self.student["GPA"]
+        if gpa >= 3.5:
+            return "Excellent"
+        elif gpa >= 3.0:
+            return "Good"
+        elif gpa >= 2.5:
+            return "Satisfactory"
+        elif gpa >= 2.0:
+            return "Probation"
+        else:
+            return "Critical"
+
+    def _get_obs(self):
+        """Convert all observations into a flat vector"""
+        # Example implementation - adjust to match your model's expected format
+        obs = np.zeros(140, dtype=np.float32)
+        
+        # Populate the observation vector
+        # [0-33]: Course completion status (1=completed)
+        for i, course in enumerate(self.courses):
+            if course in self.student["Completed_Courses"]:
+                obs[i] = 1.0
+        
+        # [34-67]: Course availability (1=available)
+        available = self._get_eligible_courses()
+        for i, course in enumerate(self.courses):
+            if course in available:
+                obs[i+34] = 1.0
+        
+        # [68]: GPA (normalized to 0-1 range)
+        obs[68] = self.student["GPA"] / 4.0
+        
+        # [69]: Current term (normalized)
+        obs[69] = self.student["Current_Term"] / self.max_terms
+        
+        # [70-139]: Other features (interests, etc.)
+        for i, interest in enumerate(INTEREST_CATEGORIES):
+            obs[70+i] = 1.0 if interest in self.student["Interests"] else 0.0
+        
+        return obs
 
     def _get_eligible_courses(self):
-        """Get courses that can be taken this term"""
+        """Get courses that can be taken next"""
         eligible = []
-        completed_courses = set([c for c, g in self.profile["Completed_Courses"].items() if g != "F"])
+        completed = set(self.student["Passed_Courses"])
         
-        for course in self.course_list:
-            # Skip if already completed with passing grade
-            if course in completed_courses:
+        for course in self.courses:
+            # Skip if already passed
+            if course in completed:
                 continue
                 
             # Check prerequisites
             prereqs = list(self.graph.predecessors(course))
-            prereqs_satisfied = all(p in completed_courses for p in prereqs)
-            
-            if prereqs_satisfied:
+            if all(p in completed for p in prereqs):
                 eligible.append(course)
         
         return eligible
 
-    def _validate_action(self, action):
-        """Validate the selected course action"""
-        selected_courses = [self.course_list[i] for i in range(len(action)) if action[i] == 1]
-        
-        # Check course load constraints
-        if len(selected_courses) < self.min_courses_per_term:
-            return False, "Too few courses selected"
-        if len(selected_courses) > self.max_courses_per_term:
-            return False, "Too many courses selected"
-        
-        # Check if all selected courses are eligible
-        eligible_courses = self._get_eligible_courses()
-        for course in selected_courses:
-            if course not in eligible_courses:
-                return False, f"Course {course} is not eligible"
-        
-        return True, "Valid action"
-
-    def _simulate_course_outcomes(self, selected_courses):
-        """Simulate outcomes for selected courses"""
-        grades = []
-        passed_courses = []
-        failed_courses = []
-        
-        for course in selected_courses:
-            # Determine success probability based on student performance and course difficulty
-            base_success_rate = 0.8
-            
-            # Adjust based on GPA
-            if self.profile["GPA"] >= 3.5:
-                success_rate = 0.95
-            elif self.profile["GPA"] >= 3.0:
-                success_rate = 0.90
-            elif self.profile["GPA"] >= 2.5:
-                success_rate = 0.85
-            elif self.profile["GPA"] >= 2.0:
-                success_rate = 0.75
-            else:
-                success_rate = 0.65
-            
-            # Bonus for retaking failed courses
-            if course in self.profile["Failed_Courses"]:
-                success_rate += 0.15
-            
-            # Bonus for interest alignment
-            course_category = self.graph.nodes[course]['category']
-            if course_category in self.profile["Interests"]:
-                success_rate += 0.1
-            
-            success_rate = min(success_rate, 0.98)  # Cap at 98%
-            
-            # Generate grade
-            if random.random() < success_rate:
-                # Passed - generate grade based on performance level
-                if self.profile["GPA"] >= 3.5:
-                    grade = random.choices(["A", "B", "C"], weights=[0.6, 0.3, 0.1])[0]
-                elif self.profile["GPA"] >= 3.0:
-                    grade = random.choices(["A", "B", "C"], weights=[0.4, 0.4, 0.2])[0]
-                elif self.profile["GPA"] >= 2.5:
-                    grade = random.choices(["A", "B", "C", "D"], weights=[0.2, 0.4, 0.3, 0.1])[0]
-                else:
-                    grade = random.choices(["B", "C", "D"], weights=[0.2, 0.5, 0.3])[0]
-                
-                passed_courses.append(course)
-            else:
-                grade = "F"
-                failed_courses.append(course)
-            
-            grades.append(grade)
-            self.profile["Completed_Courses"][course] = grade
-        
-        return grades, passed_courses, failed_courses
-
-    def _calculate_reward(self, selected_courses, grades, passed_courses, failed_courses):
-        """Calculate reward based on outcomes"""
-        reward = 0.0
-        
-        # GPA Component
-        term_gpa = np.mean([GRADE_POINTS[g] for g in grades])
-        reward += term_gpa * 5  # Scale GPA contribution
-        
-        # Interest Alignment Bonus
-        for course in selected_courses:
-            course_category = self.graph.nodes[course]['category']
-            if course_category in self.profile["Interests"]:
-                reward += 3  # Bonus for taking courses aligned with interests
-        
-        # Progress toward graduation
-        completed_count = len([c for c, g in self.profile["Completed_Courses"].items() if g != "F"])
-        progress = completed_count / self.total_courses_needed
-        reward += progress * 10  # Progress bonus
-        
-        # Penalty for failing courses
-        reward -= len(failed_courses) * 5
-        
-        # Bonus for retaking and passing previously failed courses
-        for course in passed_courses:
-            if course in self.profile["Failed_Courses"]:
-                reward += 5  # Redemption bonus
-                self.profile["Failed_Courses"].remove(course)
-        
-        # Add new failed courses to the list
-        for course in failed_courses:
-            if course not in self.profile["Failed_Courses"]:
-                self.profile["Failed_Courses"].append(course)
-        
-        # Graduation bonus
-        if progress >= 1.0:
-            reward += 50  # Large bonus for graduating
-        
-        return reward
-
-    def _update_student_profile(self, grades):
-        """Update student profile after completing a term"""
-        # Update GPA
-        all_passing_grades = [g for g in self.profile["Completed_Courses"].values() if g != "F"]
-        if all_passing_grades:
-            total_points = sum(GRADE_POINTS[g] for g in all_passing_grades)
-            self.profile["GPA"] = round(total_points / len(all_passing_grades), 2)
-        
-        # Update term
-        self.profile["Current_Term"] += 1
-        self.terms_completed += 1
-
     def step(self, action):
-        """Execute one step in the environment"""
-        if self.done:
-            return self._get_observation(), 0, True, False, {}
+        """Execute one term"""
+        selected = [c for c, a in zip(self.courses, action) if a == 1]
+        eligible = self.student["Available_Next_Courses"]
         
         # Validate action
-        valid, message = self._validate_action(action)
-        if not valid:
-            return self._get_observation(), -20, True, False, {"error": message}
+        if len(selected) < self.courses_per_term[0]:
+            return self._get_obs(), -10, True, False, {"error": "Too few courses selected"}
+        if len(selected) > self.courses_per_term[1]:
+            return self._get_obs(), -10, True, False, {"error": "Too many courses selected"}
+        if any(c not in eligible for c in selected):
+            return self._get_obs(), -10, True, False, {"error": "Ineligible course selected"}
+
+        # Simulate grades for selected courses
+        for course in selected:
+            grade = self._simulate_grade(course)
+            self.student["Completed_Courses"][course] = grade
+            
+            # Track retakes
+            if course in self.student["Failed_Courses"]:
+                self.student["Retaken_Courses"].append(course)
         
-        # Get selected courses
-        selected_courses = [self.course_list[i] for i in range(len(action)) if action[i] == 1]
+        # Update all derived fields
+        self._update_derived_fields()
         
-        # Simulate course outcomes
-        grades, passed_courses, failed_courses = self._simulate_course_outcomes(selected_courses)
+        # Advance term
+        self.student["Current_Term"] += 1
         
         # Calculate reward
-        reward = self._calculate_reward(selected_courses, grades, passed_courses, failed_courses)
+        reward = self._calculate_reward(selected)
         
-        # Update student profile
-        self._update_student_profile(grades)
+        # Check termination
+        done = (
+            self.student["Graduation_Progress"] >= 100 or
+            self.student["Current_Term"] > self.max_terms
+        )
         
-        # Check termination conditions
-        completed_count = len([c for c, g in self.profile["Completed_Courses"].items() if g != "F"])
-        progress = completed_count / self.total_courses_needed
-        
-        if progress >= 1.0:
-            self.done = True
-            reward += 100  # Large graduation bonus
-        elif self.profile["Current_Term"] > self.max_terms:
-            self.done = True
-            reward -= 50  # Penalty for not graduating in time
-        
-        # Prepare info
         info = {
-            "selected_courses": selected_courses,
-            "grades": grades,
-            "passed": len(passed_courses),
-            "failed": len(failed_courses),
-            "graduation_progress": progress,
-            "graduated": progress >= 1.0,
-            "current_gpa": self.profile["GPA"],
-            "current_term": self.profile["Current_Term"]
-        }
+        'selected_courses': selected,  # List of course names
+        'current_term': self.student["Current_Term"],
+        'gpa': self.student["GPA"],
+        "graduation_progress": self.student["Graduation_Progress"],
+        'passed': len(self.student["Passed_Courses"]),
+        'failed': len(self.student["Failed_Courses"])
+    }
+
+        return self._get_obs(), reward, done, False, info
+
+    def _simulate_grade(self, course):
+        """Simulate grade for a course based on student performance"""
+        base_success = 0.7 + 0.1 * self.student["GPA"]  # Base 70% + GPA bonus
         
-        return self._get_observation(), reward, self.done, False, info
+        # Retake bonus
+        if course in self.student["Failed_Courses"]:
+            base_success += 0.15
+            
+        # Interest bonus
+        if self.graph.nodes[course]['category'] in self.student["Interests"]:
+            base_success += 0.1
+            
+        base_success = min(base_success, 0.95)  # Cap at 95%
+        
+        if random.random() < base_success:
+            # Passed - generate grade based on GPA
+            if self.student["GPA"] >= 3.5:
+                return random.choices(["A", "B", "C"], [0.6, 0.3, 0.1])[0]
+            elif self.student["GPA"] >= 3.0:
+                return random.choices(["A", "B", "C"], [0.4, 0.4, 0.2])[0]
+            elif self.student["GPA"] >= 2.5:
+                return random.choices(["A", "B", "C", "D"], [0.2, 0.4, 0.3, 0.1])[0]
+            else:
+                return random.choices(["B", "C", "D"], [0.2, 0.5, 0.3])[0]
+        else:
+            return "F"
 
+    def _calculate_reward(self, selected):
+        """Calculate reward based on student performance"""
+        reward = 0
+        
+        # GPA reward (normalized)
+        reward += (self.student["GPA"] - 2.0) / 2.0
+        
+        # Progress reward
+        reward += len(self.student["Passed_Courses"]) / len(self.courses)
+        
+        # Penalty for failing courses
+        failed_this_term = sum(1 for c in selected if self.student["Completed_Courses"][c] == "F")
+        reward -= failed_this_term * 0.5
+        
+        # Graduation bonus
+        if self.student["Graduation_Progress"] >= 100:
+            reward += 10
+            
+        return reward
 
-class CurriculumMultiStudentEnv(gym.Env):
-    """Multi-student environment for training on multiple student profiles"""
+    def get_valid_action(self, num_courses=4):
+        """Generate a valid action for testing"""
+        eligible = self.student["Available_Next_Courses"]
+        
+        if len(eligible) < num_courses:
+            num_courses = len(eligible)
+        
+        # Select random courses from eligible ones
+        selected = random.sample(eligible, min(num_courses, len(eligible)))
+        
+        # Create action vector
+        action = np.zeros(len(self.courses), dtype=np.int8)
+        for course in selected:
+            if course in self.courses:
+                action[self.courses.index(course)] = 1
+        
+        return action
+
+class CurriculumRecommendationSystem:
+    """Main recommendation system with enhanced features"""
     
-    def __init__(self, students, curriculum_graph):
-        super(CurriculumMultiStudentEnv, self).__init__()
-        self.students = students
+    def __init__(self, curriculum_graph):
         self.graph = curriculum_graph
-        self.current_student_idx = 0
+        self.courses = list(curriculum_graph.nodes())
         
-        # Create a single student environment for reference
-        sample_env = CurriculumEnv(students[0], curriculum_graph)
-        self.action_space = sample_env.action_space
-        self.observation_space = sample_env.observation_space
+    def recommend_courses(self, student_profile, num_courses=4):
+        """Recommend courses based on student profile"""
+        env = CurriculumEnv(student_profile, self.graph)
+        obs, _ = env.reset()
         
-        self.current_env = None
-        self.reset()
-
-    def reset(self, seed=None, options=None):
-        """Reset to next student or cycle back to first student"""
-        if seed is not None:
-            self.np_random, _ = gym.utils.seeding.np_random(seed)
-            random.seed(seed)
-        
-        # Move to next student
-        self.current_student_idx = (self.current_student_idx + 1) % len(self.students)
-        student = self.students[self.current_student_idx]
-        
-        # Create new environment for this student
-        self.current_env = CurriculumEnv(student, self.graph)
-        
-        return self.current_env.reset(seed=seed)
-
-    def step(self, action):
-        """Execute step in current student environment"""
-        return self.current_env.step(action)
-
-    def get_current_student_info(self):
-        """Get information about current student"""
-        if self.current_env:
-            return {
-                "student_id": self.students[self.current_student_idx].get("ID", f"Student_{self.current_student_idx}"),
-                "student_index": self.current_student_idx,
-                "student_profile": self.students[self.current_student_idx]
-            }
-        return None
-
-
-def create_heuristic_recommender(curriculum_graph):
-    """
-    Create a heuristic-based course recommender as baseline
-    """
-    
-    def recommend_courses(student_profile, max_courses=4):
-        """
-        Heuristic recommendation algorithm
-        """
         # Get eligible courses
-        completed_courses = set([c for c, g in student_profile.get("Completed_Courses", {}).items() if g != "F"])
-        eligible_courses = []
+        eligible = env.student["Available_Next_Courses"]
         
-        for course in curriculum_graph.nodes():
-            if course in completed_courses:
-                continue
-            
-            prereqs = list(curriculum_graph.predecessors(course))
-            if all(p in completed_courses for p in prereqs):
-                eligible_courses.append(course)
+        if len(eligible) < num_courses:
+            num_courses = len(eligible)
         
-        if not eligible_courses:
-            return []
+        # Score courses based on various factors
+        scored_courses = []
         
-        # Score courses based on multiple criteria
-        course_scores = []
-        student_interests = student_profile.get("Interests", [])
+        for course in eligible:
+            score = self._calculate_course_score(course, student_profile)
+            scored_courses.append((course, score))
         
-        for course in eligible_courses:
-            score = 0
-            course_category = curriculum_graph.nodes[course]['category']
-            
-            # Interest alignment (highest priority)
-            if course_category in student_interests:
-                score += 10
-            
-            # Core course priority (essential for graduation)
-            if course_category == "Core":
-                score += 8
-            
-            # Prerequisite for many courses (enables future options)
-            successors = list(curriculum_graph.successors(course))
-            score += len(successors) * 2
-            
-            # Failed course redemption
-            if course in student_profile.get("Failed_Courses", []):
-                score += 5
-            
-            course_scores.append((course, score))
+        # Sort by score and select top courses
+        scored_courses.sort(key=lambda x: x[1], reverse=True)
+        recommendations = [course for course, score in scored_courses[:num_courses]]
         
-        # Sort by score and return top courses
-        course_scores.sort(key=lambda x: x[1], reverse=True)
-        recommended = [course for course, score in course_scores[:max_courses]]
-        
-        return recommended
+        return recommendations, scored_courses
     
-    return recommend_courses
+    def _calculate_course_score(self, course, student_profile):
+        """Calculate score for a course based on student profile"""
+        score = 0
+        
+        # Interest alignment
+        if self.graph.nodes[course]['category'] in student_profile["Interests"]:
+            score += 10
+        
+        # Retake priority
+        if course in student_profile.get("Failed_Courses", []):
+            score += 15
+        
+        # GPA consideration - easier courses for struggling students
+        if student_profile.get("GPA", 0) < 2.5:
+            # Prioritize core courses
+            if self.graph.nodes[course]['category'] == "Core":
+                score += 5
+        
+        # Random factor to avoid deterministic recommendations
+        score += random.uniform(0, 3)
+        
+        return score
 
-
-# Example usage and testing functions
-def test_environment_setup():
-    """Test the environment setup with sample data"""
-    print("Testing environment setup...")
+def test_environment_comprehensive():
+    """Comprehensive test of the environment"""
+    print("=== Comprehensive Environment Test ===")
     
     # Create sample student profile
     sample_student = {
-        "ID": "TEST001",
-        "Interests": ["AI", "Data Science"],
-        "Completed_Courses": {"CS101": "A", "CS102": "B"},
-        "Failed_Courses": [],
+        "ID": "STU001",
+        "Interests": ["AI", "Elective", "Security"],
+        "Completed_Courses": {"CS101": "F", "CS105": "B"},
+        "Passed_Courses": ["CS105"],
+        "Failed_Courses": ["CS101"],
+        "Retaken_Courses": [],
         "Current_Term": 2,
-        "GPA": 3.5
+        "GPA": 3.0,
+        "Academic_Standing": "Good",
+        "Graduation_Progress": 3.0,
+        "Total_Courses_Passed": 1,
+        "Total_Courses_Failed": 1,
+        "Available_Next_Courses": ["CS101", "CS102", "CS107"]
     }
     
-    # Create simple curriculum graph
-    sample_graph = nx.DiGraph()
-    sample_graph.add_node("CS101", category="Core")
-    sample_graph.add_node("CS102", category="Core")
-    sample_graph.add_node("CS103", category="Core")
-    sample_graph.add_node("AI201", category="AI")
-    sample_graph.add_edge("CS102", "CS103")
-    sample_graph.add_edge("CS103", "AI201")
+    # Create a simple curriculum graph for testing
+    curriculum = nx.DiGraph()
+    courses = [
+        ("CS101", {"category": "Core"}),
+        ("CS102", {"category": "Core"}),
+        ("CS103", {"category": "Core"}),
+        ("CS105", {"category": "Core"}),
+        ("CS107", {"category": "Elective"}),
+        ("CS201", {"category": "AI"}),
+        ("CS202", {"category": "Security"}),
+        ("CS203", {"category": "Data Science"}),
+    ]
     
-    # Test single student environment
-    env = CurriculumEnv(sample_student, sample_graph)
+    curriculum.add_nodes_from(courses)
+    curriculum.add_edges_from([
+        ("CS101", "CS201"),
+        ("CS102", "CS202"),
+        ("CS103", "CS203"),
+        ("CS105", "CS107"),
+    ])
+    
+    # Test environment
+    env = CurriculumEnv(sample_student, curriculum)
     obs, _ = env.reset()
     
-    print("Initial observation keys:", obs.keys())
-    print("Action space:", env.action_space)
-    print("Observation space:", env.observation_space)
+    print(f"Initial state:")
+    print(f"  Available courses: {env.student['Available_Next_Courses']}")
+    print(f"  Current term: {env.student['Current_Term']}")
+    print(f"  GPA: {env.student['GPA']}")
+    print(f"  Progress: {env.student['Graduation_Progress']}%")
     
-    # Test action
-    action = np.array([0, 0, 1, 0])  # Select CS103
-    obs, reward, done, truncated, info = env.step(action)
+    # Test valid action
+    print("\n=== Testing Valid Action ===")
+    valid_action = env.get_valid_action(4)
+    selected_courses = [c for c, a in zip(env.courses, valid_action) if a == 1]
+    print(f"Selected courses: {selected_courses}")
     
-    print("After step - Reward:", reward)
-    print("Info:", info)
-    print("Done:", done)
+    obs, reward, done, truncated, info = env.step(valid_action)
+    print(f"Reward: {reward}")
+    print(f"Info: {info}")
+    print(f"Done: {done}")
+    print(f"New GPA: {env.student['GPA']}")
+    print(f"New Progress: {env.student['Graduation_Progress']}%")
+    
+    # Test recommendation system
+    print("\n=== Testing Recommendation System ===")
+    rec_system = CurriculumRecommendationSystem(curriculum)
+    recommendations, scored_courses = rec_system.recommend_courses(sample_student, 3)
+    
+    print(f"Recommendations: {recommendations}")
+    print("All scored courses:")
+    for course, score in scored_courses:
+        print(f"  {course}: {score:.2f}")
     
     return True
 
+
 if __name__ == "__main__":
-    test_environment_setup()
+    # Run comprehensive test
+    test_environment_comprehensive()
+    
+    # Additional test with mock curriculum
+    print("\n" + "="*50)
+    print("=== Testing with Mock Curriculum ===")
+    
+    try:
+        with open("AI-Powered-Academic-Advisor/data/curriculum.pkl", "rb") as f:
+            curriculum = pickle.load(f)    
+        
+        # Test student with more diverse background
+        advanced_student = {
+            "ID": "STU001",
+            "Interests": ["AI", "Elective", "Security"],
+            "completed_courses": {
+                "CS101": "F",  # Failed, can retake
+                "CS105": "B"   # Passed
+            },
+            "current_term": 2,
+            "Passed_Courses": [
+                "CS105"
+            ],
+            "Failed_Courses": [
+                "CS101"
+            ],
+            "Retaken_Courses": [],
+            "GPA": 3.0,
+            "Academic_Standing": "Good",
+            "Graduation_Progress": 3.0,
+            "Total_Courses_Passed": 1,
+            "Total_Courses_Failed": 1,
+            "Available_Next_Courses": [
+                "CS101",
+                "CS102",
+                "CS107"
+            ]
+        }
+        
+        rec_system = CurriculumRecommendationSystem(curriculum)
+        recommendations, scored_courses = rec_system.recommend_courses(advanced_student, 4)
+        
+        print(f"Advanced student recommendations: {recommendations}")
+        print("Course scores:")
+        for course, score in scored_courses[:10]:  # Top 10
+            course_name = curriculum.nodes[course]['label']
+            category = curriculum.nodes[course]['category']
+            print(f"  {course} ({course_name}) [{category}]: {score:.2f}")
+    
+    except FileNotFoundError:
+        print("Curriculum file not found. Skipping advanced test.")
+    except Exception as e:
+        print(f"Error in advanced test: {e}")

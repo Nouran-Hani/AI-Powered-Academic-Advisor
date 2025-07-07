@@ -1,0 +1,92 @@
+{
+  "TEST001": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST002": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST003": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST004": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST005": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST006": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST007": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST008": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST009": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  },
+  "TEST010": {
+    "reward": -10.0,
+    "gpa": 0.0,
+    "graduated": false,
+    "terms_completed": 0,
+    "selected_courses": [],
+    "passed_courses": 0,
+    "failed_courses": 0
+  }
+}
