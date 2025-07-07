@@ -1,13 +1,10 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold, CheckpointCallback
-from stable_baselines3.common.vec_env import VecMonitor
+from stable_baselines3.common.callbacks import CheckpointCallback
 import json
 import pickle
 import random
-import os
 from recommendation import CurriculumEnv  # Your curriculum environment
-import numpy as np
 
 def train_advisor():
     # Load data

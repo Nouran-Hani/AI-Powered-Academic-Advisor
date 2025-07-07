@@ -3,7 +3,6 @@ import json
 import pickle
 import networkx as nx
 import numpy as np
-from datetime import datetime
 
 # Global lists
 interests_list = ["AI", "Security", "Data Science", "Elective"]

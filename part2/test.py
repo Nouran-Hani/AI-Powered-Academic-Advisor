@@ -1,10 +1,8 @@
 import json
 import pickle
-import numpy as np
 from stable_baselines3 import PPO
 from recommendation import CurriculumEnv
 import matplotlib.pyplot as plt
-import gym
 import os  # For path handling
 
 def test_advisor():
