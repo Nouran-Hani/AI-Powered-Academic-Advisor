@@ -1,4 +1,4 @@
-````markdown
+
 # Curriculum-Based Academic Advisor using Reinforcement Learning
 
 This project simulates an AI-powered academic advising system that guides students through a structured university curriculum using **Reinforcement Learning (RL)**. The system models academic progress and course selection using a graph-based curriculum and a custom Gymnasium environment.
@@ -90,4 +90,3 @@ gymnasium
 stable-baselines3
 ```
 
-````
