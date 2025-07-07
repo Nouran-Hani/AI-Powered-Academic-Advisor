@@ -1,0 +1,19 @@
+{
+  "rl_metrics": {
+    "avg_reward": -20.0,
+    "graduation_rate": 0.0,
+    "avg_gpa": 0.0,
+    "avg_terms": 1.0
+  },
+  "heuristic_metrics": {
+    "avg_reward": 193.5,
+    "graduation_rate": 0.8,
+    "avg_gpa": 3.245673076923077,
+    "avg_terms": 10.5
+  },
+  "comparison": {
+    "reward_improvement": -213.5,
+    "graduation_rate_improvement": -0.8,
+    "gpa_improvement": -3.245673076923077
+  }
+}

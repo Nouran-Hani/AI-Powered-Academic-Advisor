@@ -1,0 +1,256 @@
+[
+  {
+    "ID": "TEST001",
+    "Interests": [
+      "AI"
+    ],
+    "Completed_Courses": {
+      "CS101": "D",
+      "CS105": "A",
+      "CS102": "B",
+      "CS107": "A",
+      "EL307": "F"
+    },
+    "Current_Courses": [
+      "CS103",
+      "CS106",
+      "EL307"
+    ],
+    "Failed_Courses": [
+      "EL307"
+    ],
+    "Retaken_Courses": [],
+    "Current_Term": 3,
+    "GPA": 3.0,
+    "Academic_Standing": "Good",
+    "Graduation_Progress": 12.1,
+    "Total_Courses_Completed": 4,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST002",
+    "Interests": [
+      "AI",
+      "Elective",
+      "Data Science"
+    ],
+    "Completed_Courses": {
+      "CS105": "F",
+      "CS101": "A"
+    },
+    "Current_Courses": [
+      "CS106",
+      "CS107",
+      "EL307"
+    ],
+    "Failed_Courses": [
+      "CS105"
+    ],
+    "Retaken_Courses": [],
+    "Current_Term": 2,
+    "GPA": 4.0,
+    "Academic_Standing": "Excellent",
+    "Graduation_Progress": 3.0,
+    "Total_Courses_Completed": 1,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST003",
+    "Interests": [
+      "Security"
+    ],
+    "Completed_Courses": {
+      "CS101": "A",
+      "CS105": "A",
+      "CS106": "B",
+      "EL307": "F"
+    },
+    "Current_Courses": [
+      "CS102",
+      "CS107",
+      "EL307"
+    ],
+    "Failed_Courses": [
+      "EL307"
+    ],
+    "Retaken_Courses": [
+      "CS105"
+    ],
+    "Current_Term": 3,
+    "GPA": 3.67,
+    "Academic_Standing": "Excellent",
+    "Graduation_Progress": 9.1,
+    "Total_Courses_Completed": 3,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST004",
+    "Interests": [
+      "Elective",
+      "Security"
+    ],
+    "Completed_Courses": {
+      "CS101": "F",
+      "CS107": "C"
+    },
+    "Current_Courses": [
+      "CS101",
+      "CS102"
+    ],
+    "Failed_Courses": [
+      "CS101"
+    ],
+    "Retaken_Courses": [],
+    "Current_Term": 2,
+    "GPA": 2.0,
+    "Academic_Standing": "Probation",
+    "Graduation_Progress": 3.0,
+    "Total_Courses_Completed": 1,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST005",
+    "Interests": [
+      "Elective",
+      "AI"
+    ],
+    "Completed_Courses": {
+      "CS102": "F",
+      "CS107": "A"
+    },
+    "Current_Courses": [
+      "CS102",
+      "CS105"
+    ],
+    "Failed_Courses": [
+      "CS102"
+    ],
+    "Retaken_Courses": [],
+    "Current_Term": 2,
+    "GPA": 4.0,
+    "Academic_Standing": "Excellent",
+    "Graduation_Progress": 3.0,
+    "Total_Courses_Completed": 1,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST006",
+    "Interests": [
+      "AI",
+      "Security"
+    ],
+    "Completed_Courses": {
+      "CS107": "D",
+      "CS105": "F",
+      "CS101": "A"
+    },
+    "Current_Courses": [
+      "CS102",
+      "CS105",
+      "EL307"
+    ],
+    "Failed_Courses": [
+      "CS105"
+    ],
+    "Retaken_Courses": [
+      "CS107"
+    ],
+    "Current_Term": 3,
+    "GPA": 2.5,
+    "Academic_Standing": "Satisfactory",
+    "Graduation_Progress": 6.1,
+    "Total_Courses_Completed": 2,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST007",
+    "Interests": [
+      "Data Science",
+      "Elective"
+    ],
+    "Completed_Courses": {
+      "CS102": "F",
+      "CS105": "B"
+    },
+    "Current_Courses": [
+      "CS102",
+      "CS101"
+    ],
+    "Failed_Courses": [
+      "CS102"
+    ],
+    "Retaken_Courses": [],
+    "Current_Term": 2,
+    "GPA": 3.0,
+    "Academic_Standing": "Good",
+    "Graduation_Progress": 3.0,
+    "Total_Courses_Completed": 1,
+    "Total_Courses_Failed": 1
+  },
+  {
+    "ID": "TEST008",
+    "Interests": [
+      "Elective",
+      "Data Science",
+      "AI"
+    ],
+    "Completed_Courses": {},
+    "Current_Courses": [
+      "CS107",
+      "CS105"
+    ],
+    "Failed_Courses": [],
+    "Retaken_Courses": [],
+    "Current_Term": 1,
+    "GPA": 0.0,
+    "Academic_Standing": "Critical",
+    "Graduation_Progress": 0.0,
+    "Total_Courses_Completed": 0,
+    "Total_Courses_Failed": 0
+  },
+  {
+    "ID": "TEST009",
+    "Interests": [
+      "Elective",
+      "Security",
+      "Data Science"
+    ],
+    "Completed_Courses": {
+      "CS105": "B",
+      "CS101": "C"
+    },
+    "Current_Courses": [
+      "CS102",
+      "CS106",
+      "EL307"
+    ],
+    "Failed_Courses": [],
+    "Retaken_Courses": [],
+    "Current_Term": 2,
+    "GPA": 2.5,
+    "Academic_Standing": "Satisfactory",
+    "Graduation_Progress": 6.1,
+    "Total_Courses_Completed": 2,
+    "Total_Courses_Failed": 0
+  },
+  {
+    "ID": "TEST010",
+    "Interests": [
+      "Security",
+      "Data Science"
+    ],
+    "Completed_Courses": {},
+    "Current_Courses": [
+      "CS101",
+      "CS102"
+    ],
+    "Failed_Courses": [],
+    "Retaken_Courses": [],
+    "Current_Term": 1,
+    "GPA": 0.0,
+    "Academic_Standing": "Critical",
+    "Graduation_Progress": 0.0,
+    "Total_Courses_Completed": 0,
+    "Total_Courses_Failed": 0
+  }
+]
