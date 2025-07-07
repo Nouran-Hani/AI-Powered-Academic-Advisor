@@ -46,8 +46,8 @@ courses = [
 
 
 # Build the curriculum graph
-for course in courses:
-    add_course(*course)
+# for course in courses:
+#     add_course(*course)
 
 def visualize_curriculum(graph):
     category_colors = {
@@ -106,7 +106,7 @@ def visualize_curriculum(graph):
 
 
 
-visualize_curriculum(curi)
+# visualize_curriculum(curi)
 
 
 def save_curriculum(filename='AI-Powered-Academic-Advisor/curriculum.pkl'):
@@ -115,4 +115,4 @@ def save_curriculum(filename='AI-Powered-Academic-Advisor/curriculum.pkl'):
 
 
 # Save the curriculum graph to a file
-save_curriculum()
+# save_curriculum()

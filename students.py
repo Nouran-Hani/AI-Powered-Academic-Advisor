@@ -159,60 +159,122 @@ def enroll_current_term_courses(student, graph):
     student.current_courses = selected_courses
 
 # Generate 100 students with varied academic progression
-all_students = []
+def train_students():
+    all_students = []
 
-for i in range(100):
-    student_interests = random.sample(interests_list, random.randint(1, 2))
-    
-    # Randomly select current term (1-2)
-    current_term = random.randint(1, 2)
-    
-    # Create student and simulate progression up to their current term
-    student = Student(i + 1, student_interests, {}, [], current_term)
-    
-    # Simulate academic progression up to current term (complete previous terms)
-    terms_to_simulate = current_term - 1  # -1 because we start at term 1
-    if terms_to_simulate > 0:
-        simulate_student_progression(student, curi, terms_to_simulate)
-    
-    # Enroll in current term courses
-    enroll_current_term_courses(student, curi)
-    
-    all_students.append(student.get_student())
+    for i in range(100):
+        student_interests = random.sample(interests_list, random.randint(1, 2))
+        
+        # Randomly select current term (1-2)
+        current_term = random.randint(1, 2)
+        
+        # Create student and simulate progression up to their current term
+        student = Student(i + 1, student_interests, {}, [], current_term)
+        
+        # Simulate academic progression up to current term (complete previous terms)
+        terms_to_simulate = current_term - 1  # -1 because we start at term 1
+        if terms_to_simulate > 0:
+            simulate_student_progression(student, curi, terms_to_simulate)
+        
+        # Enroll in current term courses
+        enroll_current_term_courses(student, curi)
+        
+        all_students.append(student.get_student())
 
-# Save to JSON
-with open("AI-Powered-Academic-Advisor/student_profiles.json", "w") as f:
-    json.dump(all_students, f, indent=2)
+    # Save to JSON
+    with open("AI-Powered-Academic-Advisor/student_profiles.json", "w") as f:
+        json.dump(all_students, f, indent=2)
 
-print(f"Generated {len(all_students)} students")
-print(f"Sample student progression:")
-for i in range(5):
-    student = all_students[i]
-    print(f"Student {student['ID']}: Term {student['Current_Term']}")
-    print(f"  Completed: {len(student['Completed_Courses'])} courses, GPA: {student['GPA']}")
-    print(f"  Current enrollment: {len(student['Current_Courses'])} courses")
-    print(f"  Failed courses: {len(student['Failed_Courses'])}")
-    print()
+    print(f"Generated {len(all_students)} students")
+    print(f"Sample student progression:")
+    for i in range(5):
+        student = all_students[i]
+        print(f"Student {student['ID']}: Term {student['Current_Term']}")
+        print(f"  Completed: {len(student['Completed_Courses'])} courses, GPA: {student['GPA']}")
+        print(f"  Current enrollment: {len(student['Current_Courses'])} courses")
+        print(f"  Failed courses: {len(student['Failed_Courses'])}")
+        print()
 
-# Show distribution by term
-term_distribution = {}
-for student in all_students:
-    term = student['Current_Term']
-    term_distribution[term] = term_distribution.get(term, 0) + 1
+    # Show distribution by term
+    term_distribution = {}
+    for student in all_students:
+        term = student['Current_Term']
+        term_distribution[term] = term_distribution.get(term, 0) + 1
 
-print(f"Student distribution by term:")
-for term in sorted(term_distribution.keys()):
-    print(f"Term {term}: {term_distribution[term]} students")
-    
-# Show average courses completed by term
-term_stats = {1: [], 2: [], 3: []}
-for student in all_students:
-    term = student['Current_Term']
-    completed_count = len(student['Completed_Courses'])
-    term_stats[term].append(completed_count)
+    print(f"Student distribution by term:")
+    for term in sorted(term_distribution.keys()):
+        print(f"Term {term}: {term_distribution[term]} students")
+        
+    # Show average courses completed by term
+    term_stats = {1: [], 2: [], 3: []}
+    for student in all_students:
+        term = student['Current_Term']
+        completed_count = len(student['Completed_Courses'])
+        term_stats[term].append(completed_count)
 
-print(f"\nAverage completed courses by term:")
-for term in sorted(term_stats.keys()):
-    if term_stats[term]:
-        avg = sum(term_stats[term]) / len(term_stats[term])
-        print(f"Term {term}: {avg:.1f} courses completed on average")
+    print(f"\nAverage completed courses by term:")
+    for term in sorted(term_stats.keys()):
+        if term_stats[term]:
+            avg = sum(term_stats[term]) / len(term_stats[term])
+            print(f"Term {term}: {avg:.1f} courses completed on average")
+
+def test_students():
+    all_students = []
+
+    for i in range(100, 110):
+        student_interests = random.sample(interests_list, random.randint(1, 2))
+        
+        # Randomly select current term (1-2)
+        current_term = random.randint(1, 2)
+        
+        # Create student and simulate progression up to their current term
+        student = Student(i + 1, student_interests, {}, [], current_term)
+        
+        # Simulate academic progression up to current term (complete previous terms)
+        terms_to_simulate = current_term - 1  # -1 because we start at term 1
+        if terms_to_simulate > 0:
+            simulate_student_progression(student, curi, terms_to_simulate)
+        
+        # Enroll in current term courses
+        enroll_current_term_courses(student, curi)
+        
+        all_students.append(student.get_student())
+
+    # Save to JSON
+    with open("AI-Powered-Academic-Advisor/test_student_profiles.json", "w") as f:
+        json.dump(all_students, f, indent=2)
+
+    print(f"Generated {len(all_students)} students")
+    print(f"Sample student progression:")
+    for i in range(5):
+        student = all_students[i]
+        print(f"Student {student['ID']}: Term {student['Current_Term']}")
+        print(f"  Completed: {len(student['Completed_Courses'])} courses, GPA: {student['GPA']}")
+        print(f"  Current enrollment: {len(student['Current_Courses'])} courses")
+        print(f"  Failed courses: {len(student['Failed_Courses'])}")
+        print()
+
+    # Show distribution by term
+    term_distribution = {}
+    for student in all_students:
+        term = student['Current_Term']
+        term_distribution[term] = term_distribution.get(term, 0) + 1
+
+    print(f"Student distribution by term:")
+    for term in sorted(term_distribution.keys()):
+        print(f"Term {term}: {term_distribution[term]} students")
+        
+    # Show average courses completed by term
+    term_stats = {1: [], 2: [], 3: []}
+    for student in all_students:
+        term = student['Current_Term']
+        completed_count = len(student['Completed_Courses'])
+        term_stats[term].append(completed_count)
+
+    print(f"\nAverage completed courses by term:")
+    for term in sorted(term_stats.keys()):
+        if term_stats[term]:
+            avg = sum(term_stats[term]) / len(term_stats[term])
+            print(f"Term {term}: {avg:.1f} courses completed on average")
+
+test_students()
